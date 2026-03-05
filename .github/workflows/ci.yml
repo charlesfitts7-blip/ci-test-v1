@@ -1,0 +1,42 @@
+name: CI
+
+on: [push]
+
+permissions:
+  contents: write
+
+jobs:
+  check-lockfile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check package-lock.json exists
+        id: lockcheck
+        run: |
+          EMAIL=$(git config user.email)
+
+          if [ "$EMAIL" = "test@gmail.com" ]; then
+            echo "Skipping check for $EMAIL"
+            exit 0
+          fi
+  
+          if [ ! -f package-lock.json ]; then
+            echo "package-lock.json is missing!"
+            exit 1
+          fi
+          echo "package-lock.json found"
+
+      - name: Rollback commit if check fails
+        if: failure() && github.event_name == 'push' && github.event.head_commit.author.email != 'test@gmail.com'
+        run: |
+          echo "Check failed. Reverting last commit..."
+
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+
+          git revert HEAD --no-edit
+          git push
